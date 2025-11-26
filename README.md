@@ -47,7 +47,7 @@
 ## 项目结构
 
 ```
-db_front/
+.
 ├── front/              # React 前端
 │   ├── src/
 │   │   ├── App.jsx    # 主应用组件
@@ -57,10 +57,13 @@ db_front/
 ├── back/               # Go 后端
 │   ├── main.go        # 主服务器和API路由
 │   ├── email.go       # 邮件发送功能
+│   ├── scheduler.go   # 定时任务和邮件收取
 │   └── go.mod
 ├── database/           # MySQL 数据库
 │   ├── db_schema.sql  # 数据库结构
 │   └── init_data.sql  # 示例数据
+├── deploy/             # 部署配置
+│   └── nginx.conf     # Nginx 反向代理配置
 ├── uploads/            # 文件存储目录
 └── docker-compose.yml  # Docker 编排配置
 ```
@@ -76,7 +79,8 @@ db_front/
 
 1. 克隆项目并进入目录：
 ```bash
-cd db_front
+git clone <repository-url>
+cd db_intro
 ```
 
 2. 启动所有服务：
@@ -85,8 +89,8 @@ docker-compose up -d
 ```
 
 3. 访问应用：
-   - 前端: http://localhost:3000
-   - 后端API: http://localhost:8080/api
+   - 前端: http://localhost
+   - 后端API: http://localhost/api
 
 4. 查看日志：
 ```bash
@@ -119,8 +123,6 @@ go run .
 
 ## API 接口
 
-详细的API文档请参考 [API_DESIGN.md](./API_DESIGN.md)
-
 ### 主要接口
 
 - `GET /api/projects` - 获取项目列表
@@ -141,33 +143,34 @@ go run .
 - `DB_USER` - MySQL 用户名（默认: root）
 - `DB_PASSWORD` - MySQL 密码（默认: root）
 - `DB_NAME` - 数据库名（默认: db_front）
-- `SMTP_HOST` - 邮件服务器地址
-- `SMTP_PORT` - 邮件服务器端口（默认: 587）
+- `SMTP_HOST` - 邮件发送服务器地址
+- `SMTP_PORT` - 邮件发送服务器端口（默认: 587）
 - `SENDER_EMAIL` - 发件人邮箱
 - `SENDER_PASS` - 发件人邮箱密码
+- `IMAP_HOST` - 邮件接收服务器地址
+- `IMAP_PORT` - 邮件接收服务器端口（默认: 993）
 
 #### 前端代理配置
-前端通过 Vite 代理转发 `/api` 请求到后端（见 `front/vite.config.js`）
+前端通过 Nginx (生产环境) 或 Vite 代理 (开发环境) 转发 `/api` 请求到后端。
 
 ## 数据库设计
-
-详细的数据库设计请参考 [DB_README.md](./DB_README.md)
 
 ### 核心表
 - `departments` - 系别信息
 - `teachers` - 教师信息
 - `projects` - 项目信息
 - `project_members` - 项目成员关系
+- `dispatches` - 邮件发送记录
 - `replies` - 邮件回复记录
 - `attachments` - 附件元数据
-- `excel_a_rows` - Excel格式A数据
-- `excel_b_rows` - Excel格式B数据
 
 ## 待完善功能
 
-- [ ] 实际的SMTP邮件发送功能（目前仅为占位实现）
-- [ ] IMAP邮件接收和解析功能
-- [ ] Excel文件解析和合并功能
+- [x] 基础信息管理（教师、系别）
+- [x] 项目创建与管理
+- [x] SMTP邮件发送功能
+- [x] IMAP邮件接收和解析功能
+- [ ] Excel文件内容解析和合并功能
 - [ ] 用户认证和权限管理
 - [ ] 数据导出为多种格式（PDF、CSV等）
 - [ ] 邮件发送队列和重试机制
