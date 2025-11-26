@@ -48,32 +48,64 @@
 
 ```
 .
-├── front/              # React 前端
-│   ├── src/
-│   │   ├── App.jsx    # 主应用组件
-│   │   ├── api.js     # API 调用封装
-│   │   └── main.jsx   # 入口文件
-│   └── package.json
-├── back/               # Go 后端
-│   ├── main.go        # 主服务器和API路由
-│   ├── email.go       # 邮件发送功能
-│   ├── scheduler.go   # 定时任务和邮件收取
-│   └── go.mod
-├── database/           # MySQL 数据库
-│   ├── db_schema.sql  # 数据库结构
-│   └── init_data.sql  # 示例数据
-├── deploy/             # 部署配置
-│   └── nginx.conf     # Nginx 反向代理配置
-├── uploads/            # 文件存储目录
-└── docker-compose.yml  # Docker 编排配置
+├── back
+│   ├── Dockerfile        # 用于构建后端容器
+│   ├── email.go          # 处理邮件收发逻辑
+│   ├── go.mod
+│   ├── go.sum
+│   ├── main.go           # 定义路由，实现 API
+│   └── scheduler.go      # 邮件收取的异步模块
+├── database
+│   ├── db_schema.sql     # 建表
+│   ├── Dockerfile        # 用于构建数据库容器   
+│   ├── init_data.sql     # 加入一些初始数据
+│   └── my.cnf            # 数据库配置文件
+├── front
+│   ├── Dockerfile        # 用于构建前端容器
+│   ├── index.html        
+│   ├── nginx.conf        # nginx 配置
+│   ├── node_modules
+│   ├── package.json
+│   ├── postcss.config.js
+│   ├── src
+│   │   ├── api.js
+│   │   ├── App.jsx
+│   │   ├── index.css
+│   │   └── main.jsx
+│   ├── tailwind.config.js
+│   └── vite.config.js
+├── README.md
+├── docker-compose.yml    # docker compose 文件，用于统筹容器
+└── uploads               # 用于存储上传文件的目录
 ```
+
+## 架构说明
+
+本项目采用前后端分离架构，容器化部署：
+
+1.  **Nginx 容器 (`nginx`)**:
+    *   基于 `nginx:stable-alpine`。
+    *   采用多阶段构建：先在 Node.js 环境中构建 React 前端，生成静态文件，然后复制到 Nginx 容器中。
+    *   负责提供前端静态页面服务。
+    *   负责将 `/api` 开头的请求反向代理到后端容器。
+    *   资源占用极低（仅需 ~10MB 内存）。
+
+2.  **后端容器 (`backend`)**:
+    *   基于 Go 1.21。
+    *   提供 RESTful API。
+    *   处理邮件收发、Excel 解析等业务逻辑。
+    *   挂载宿主机 `uploads` 目录实现文件持久化。
+
+3.  **数据库容器 (`database`)**:
+    *   基于 MySQL 8.0。
+    *   数据持久化存储。
 
 ## 快速开始
 
 ### 前置要求
 - Docker & Docker Compose
-- Node.js 18+ (本地开发)
-- Go 1.21+ (本地开发)
+- Node.js 18+ (仅本地开发需要)
+- Go 1.21+ (仅本地开发需要)
 
 ### 使用 Docker 运行（推荐）
 
@@ -83,21 +115,24 @@ git clone <repository-url>
 cd db_intro
 ```
 
-2. 启动所有服务：
+2. 配置环境变量：
+   复制 `.env.example` (如果有) 或直接创建 `.env` 文件，填入数据库和邮件服务器配置。
+
+3. 启动所有服务：
 ```bash
-docker-compose up -d
+docker-compose up -d --build
 ```
 
-3. 访问应用：
-   - 前端: http://localhost
-   - 后端API: http://localhost/api
+4. 访问应用：
+   - 前端页面: http://localhost
+   - 后端API: http://localhost/api/ping
 
-4. 查看日志：
+5. 查看日志：
 ```bash
 docker-compose logs -f
 ```
 
-5. 停止服务：
+6. 停止服务：
 ```bash
 docker-compose down
 ```
@@ -110,10 +145,12 @@ cd front
 npm install
 npm run dev
 ```
+*注意：本地开发时，Vite 会代理 `/api` 请求到 `http://localhost:8080`。*
 
 #### 后端开发
 ```bash
 cd back
+# 确保本地有运行中的 MySQL，并配置好环境变量
 go mod tidy
 go run .
 ```
@@ -136,22 +173,33 @@ go run .
 
 ## 配置说明
 
-### 环境变量
+### 环境变量 (.env)
 
-#### 后端 (back/)
-- `DB_HOST` - MySQL 主机地址（默认: localhost）
-- `DB_USER` - MySQL 用户名（默认: root）
-- `DB_PASSWORD` - MySQL 密码（默认: root）
-- `DB_NAME` - 数据库名（默认: db_front）
-- `SMTP_HOST` - 邮件发送服务器地址
-- `SMTP_PORT` - 邮件发送服务器端口（默认: 587）
-- `SENDER_EMAIL` - 发件人邮箱
-- `SENDER_PASS` - 发件人邮箱密码
-- `IMAP_HOST` - 邮件接收服务器地址
-- `IMAP_PORT` - 邮件接收服务器端口（默认: 993）
+```properties
+# 数据库配置
+DB_NAME=db_intro
+DB_USER=root
+DB_PASSWORD=root
+DB_HOST=database  # Docker 内部服务名，本地开发请用 localhost
 
-#### 前端代理配置
-前端通过 Nginx (生产环境) 或 Vite 代理 (开发环境) 转发 `/api` 请求到后端。
+# 邮件服务配置 (SMTP/IMAP)
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SENDER_EMAIL=your_email@example.com
+SENDER_PASS=your_password
+IMAP_HOST=imap.example.com
+IMAP_PORT=993
+ENABLE_EMAIL_SCHEDULER=true
+
+# 系统配置
+TZ=Asia/Shanghai  # 时区设置
+```
+
+### 数据持久化
+
+- **数据库数据**: 存储在 Docker Volume `db_data` 中。
+- **上传文件**: 映射到宿主机的 `./uploads` 目录，容器重启不会丢失。
+- **日志**: Nginx 日志存储在 Docker Volume `nginx-logs` 中。
 
 ## 数据库设计
 
