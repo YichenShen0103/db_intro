@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -61,7 +60,7 @@ func main() {
 		getEnv("DB_USER", "root"),
 		getEnv("DB_PASSWORD", "root"),
 		getEnv("DB_HOST", "localhost"),
-		getEnv("DB_NAME", "db_front"),
+		getEnv("DB_NAME", "db_intro"),
 	)
 
 	db, err = sql.Open("mysql", dsn)
@@ -90,17 +89,8 @@ func main() {
 
 	r := gin.Default()
 
-	// CORS
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}))
-
-	// Static file serving for uploads
+	// ✅ CORS由nginx统一处理，后端不再配置
+	// ✅ 静态文件由nginx代理到后端，后端提供文件读取接口
 	r.Static("/uploads", "./uploads")
 
 	// Start email fetch scheduler
