@@ -35,6 +35,17 @@ CREATE TABLE
         FOREIGN KEY (department_id) REFERENCES departments (id) ON DELETE SET NULL
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
+-- Users
+DROP TABLE IF EXISTS users;
+
+CREATE TABLE
+    users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
 -- Projects (每个汇总为一个 project)
 DROP TABLE IF EXISTS projects;
 
@@ -47,8 +58,9 @@ CREATE TABLE
         email_subject_template VARCHAR(255),
         email_body_template TEXT,
         excel_template_filename VARCHAR(255), -- 存储在 file storage 下的模板文件名
-        created_by INT, -- 管理员 user id, 可为空
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_by INT NOT NULL, -- 管理员 user id
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE CASCADE
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 -- 项目成员/收件人列表（指定哪些教师属于该项目）
@@ -59,7 +71,6 @@ CREATE TABLE
         id INT AUTO_INCREMENT PRIMARY KEY,
         project_id INT NOT NULL,
         teacher_id INT NOT NULL,
-        role VARCHAR(50) DEFAULT 'recipient', -- recipient | manager
         invited_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         sent_at DATETIME, -- 邮件发送时间
         current_status VARCHAR(50) DEFAULT 'pending', -- pending | replied | ignored
@@ -82,6 +93,20 @@ CREATE TABLE
         sent_count INT,
         dispatched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+    ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Sent Emails: 记录系统发出的邮件 Message-ID，用于追踪回复
+DROP TABLE IF EXISTS sent_emails;
+
+CREATE TABLE
+    sent_emails (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        project_id INT NOT NULL,
+        teacher_id INT NOT NULL,
+        message_id VARCHAR(255) NOT NULL UNIQUE,
+        sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+        FOREIGN KEY (teacher_id) REFERENCES teachers (id) ON DELETE CASCADE
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 -- Replies: 从邮件服务器解析到的一封回复（按邮件 message-id）
@@ -116,7 +141,6 @@ CREATE TABLE
         stored_path VARCHAR(500) NOT NULL, -- 本地或云存储路径
         content_type VARCHAR(100),
         file_size INT,
-        excel_type VARCHAR(50), -- type_a | type_b | unknown
         parsed BOOLEAN DEFAULT FALSE,
         parsed_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
