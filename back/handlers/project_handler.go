@@ -159,10 +159,10 @@ func (h *ProjectHandler) DispatchProject(c *gin.Context) {
 	// Get project details for email template
 	var project models.Project
 	err = db.DB.QueryRow(`
-		SELECT id, code, name, email_subject_template, email_body_template, excel_template_filename
+		SELECT id, code, name, email_subject_template, email_body_template, excel_template_filename, created_by
 		FROM projects WHERE id=?
 	`, projectID).Scan(&project.ID, &project.Code, &project.Name, &project.EmailSubjectTemplate,
-		&project.EmailBodyTemplate, &project.ExcelTemplateFilename)
+		&project.EmailBodyTemplate, &project.ExcelTemplateFilename, &project.CreatedBy)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get project details"})
@@ -306,10 +306,10 @@ func (h *ProjectHandler) RemindTeachers(c *gin.Context) {
 	// Get project details for reminder template
 	var project models.Project
 	err = db.DB.QueryRow(`
-		SELECT id, code, name, email_subject_template, email_body_template
+		SELECT id, code, name, email_subject_template, email_body_template, created_by
 		FROM projects WHERE id=?
 	`, projectID).Scan(&project.ID, &project.Code, &project.Name,
-		&project.EmailSubjectTemplate, &project.EmailBodyTemplate)
+		&project.EmailSubjectTemplate, &project.EmailBodyTemplate, &project.CreatedBy)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get project details"})
@@ -328,6 +328,31 @@ func (h *ProjectHandler) RemindTeachers(c *gin.Context) {
 func (h *ProjectHandler) dispatchProjectEmailsAsync(project models.Project, teacherIDs []int, attachmentPath, targetType string) {
 	ids := append([]int(nil), teacherIDs...)
 	go func(p models.Project, ids []int, attach, tType string) {
+		// Fetch user config
+		var user models.User
+		var smtpHost, smtpPort, smtpUser, smtpPass, imapHost, imapPort, imapUser, imapPass, emailAddr sql.NullString
+		err := db.DB.QueryRow("SELECT id, smtp_host, smtp_port, smtp_username, smtp_password, imap_host, imap_port, imap_username, imap_password, email_address FROM users WHERE id = ?", p.CreatedBy).Scan(
+			&user.ID, &smtpHost, &smtpPort, &smtpUser, &smtpPass, &imapHost, &imapPort, &imapUser, &imapPass, &emailAddr,
+		)
+		if err != nil {
+			log.Printf("Failed to fetch user config for project %d: %v", p.ID, err)
+			return
+		}
+		user.SMTPHost = smtpHost.String
+		user.SMTPPort = smtpPort.String
+		user.SMTPUsername = smtpUser.String
+		user.SMTPPassword = smtpPass.String
+		user.IMAPHost = imapHost.String
+		user.IMAPPort = imapPort.String
+		user.IMAPUsername = imapUser.String
+		user.IMAPPassword = imapPass.String
+		user.EmailAddress = emailAddr.String
+
+		if user.SMTPHost == "" || user.EmailAddress == "" {
+			log.Printf("User %d has no email config, aborting dispatch", p.CreatedBy)
+			return
+		}
+
 		log.Printf("Starting background dispatch for project %d (%d teachers)...", p.ID, len(ids))
 		successCount := 0
 		for _, tid := range ids {
@@ -340,7 +365,7 @@ func (h *ProjectHandler) dispatchProjectEmailsAsync(project models.Project, teac
 			subject := h.replaceTemplateVars(p.EmailSubjectTemplate, teacherName, p.Name)
 			body := h.replaceTemplateVars(p.EmailBodyTemplate, teacherName, p.Name)
 
-			msgID, err := h.EmailService.SendEmail(teacherEmail, subject, body, attach)
+			msgID, err := h.EmailService.SendEmail(user, teacherEmail, subject, body, attach)
 			if err != nil {
 				log.Printf("Failed to send email to %s: %v", teacherEmail, err)
 				continue
@@ -381,6 +406,31 @@ type reminderTarget struct {
 func (h *ProjectHandler) sendRemindersAsync(project models.Project, targets []reminderTarget) {
 	targetCopies := append([]reminderTarget(nil), targets...)
 	go func(p models.Project, items []reminderTarget) {
+		// Fetch user config
+		var user models.User
+		var smtpHost, smtpPort, smtpUser, smtpPass, imapHost, imapPort, imapUser, imapPass, emailAddr sql.NullString
+		err := db.DB.QueryRow("SELECT id, smtp_host, smtp_port, smtp_username, smtp_password, imap_host, imap_port, imap_username, imap_password, email_address FROM users WHERE id = ?", p.CreatedBy).Scan(
+			&user.ID, &smtpHost, &smtpPort, &smtpUser, &smtpPass, &imapHost, &imapPort, &imapUser, &imapPass, &emailAddr,
+		)
+		if err != nil {
+			log.Printf("Failed to fetch user config for project %d: %v", p.ID, err)
+			return
+		}
+		user.SMTPHost = smtpHost.String
+		user.SMTPPort = smtpPort.String
+		user.SMTPUsername = smtpUser.String
+		user.SMTPPassword = smtpPass.String
+		user.IMAPHost = imapHost.String
+		user.IMAPPort = imapPort.String
+		user.IMAPUsername = imapUser.String
+		user.IMAPPassword = imapPass.String
+		user.EmailAddress = emailAddr.String
+
+		if user.SMTPHost == "" || user.EmailAddress == "" {
+			log.Printf("User %d has no email config, aborting reminders", p.CreatedBy)
+			return
+		}
+
 		log.Printf("Starting reminder run for project %d (%d targets)...", p.ID, len(items))
 		successCount := 0
 		for _, t := range items {
@@ -388,7 +438,7 @@ func (h *ProjectHandler) sendRemindersAsync(project models.Project, targets []re
 			body := fmt.Sprintf("尊敬的%s老师：\n\n这是一封催促提醒邮件。\n\n%s\n\n请尽快完成并回复，谢谢！\n\n原邮件内容：\n%s",
 				t.Name, p.Name, p.EmailBodyTemplate)
 
-			msgID, err := h.EmailService.SendEmail(t.Email, subject, body, "")
+			msgID, err := h.EmailService.SendEmail(user, t.Email, subject, body, "")
 			if err != nil {
 				log.Printf("Failed to send reminder to %s (%s): %v", t.Name, t.Email, err)
 				continue

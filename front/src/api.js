@@ -48,4 +48,9 @@ export const departmentsAPI = {
   getAll: () => api.get("/departments"),
 };
 
+export const userAPI = {
+  getEmailConfig: () => api.get("/user/email-config"),
+  updateEmailConfig: (data) => api.put("/user/email-config", data),
+};
+
 export default api;

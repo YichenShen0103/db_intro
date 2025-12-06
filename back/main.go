@@ -64,6 +64,10 @@ func main() {
 			protected.PUT("/teachers/:id", handlers.UpdateTeacher)
 			protected.DELETE("/teachers/:id", handlers.DeleteTeacher)
 
+			// User Email Config
+			protected.GET("/user/email-config", handlers.GetEmailConfig)
+			protected.PUT("/user/email-config", handlers.UpdateEmailConfig)
+
 			// Projects
 			protected.GET("/projects", projectHandler.GetProjects)
 			protected.GET("/projects/:id", projectHandler.GetProject)

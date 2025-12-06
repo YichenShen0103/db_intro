@@ -43,6 +43,15 @@ CREATE TABLE
         id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(50) NOT NULL UNIQUE,
         password VARCHAR(255) NOT NULL,
+        smtp_host VARCHAR(255),
+        smtp_port VARCHAR(10),
+        smtp_username VARCHAR(255),
+        smtp_password VARCHAR(255),
+        imap_host VARCHAR(255),
+        imap_port VARCHAR(10),
+        imap_username VARCHAR(255),
+        imap_password VARCHAR(255),
+        email_address VARCHAR(255),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 

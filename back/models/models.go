@@ -3,10 +3,19 @@ package models
 import "time"
 
 type User struct {
-	ID        int       `json:"id"`
-	Username  string    `json:"username"`
-	Password  string    `json:"-"` // Don't return password in JSON
-	CreatedAt time.Time `json:"created_at"`
+	ID           int       `json:"id"`
+	Username     string    `json:"username"`
+	Password     string    `json:"-"` // Don't return password in JSON
+	SMTPHost     string    `json:"smtp_host"`
+	SMTPPort     string    `json:"smtp_port"`
+	SMTPUsername string    `json:"smtp_username"`
+	SMTPPassword string    `json:"-"` // Don't return smtp password in JSON
+	IMAPHost     string    `json:"imap_host"`
+	IMAPPort     string    `json:"imap_port"`
+	IMAPUsername string    `json:"imap_username"`
+	IMAPPassword string    `json:"-"` // Don't return imap password in JSON
+	EmailAddress string    `json:"email_address"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type Project struct {
@@ -49,10 +58,10 @@ type TrackingRecord struct {
 }
 
 type AttachmentMeta struct {
-	StoredPath     string
-	OriginalName   string
-	TeacherName    string
-	TeacherEmail   string
+	StoredPath   string
+	OriginalName string
+	TeacherName  string
+	TeacherEmail string
 }
 
 // EmailMessage represents a received email

@@ -23,8 +23,8 @@ import (
 	"db_intro_backend/models"
 
 	"github.com/emersion/go-imap"
-	"github.com/emersion/go-imap/client"
 	imapid "github.com/emersion/go-imap-id"
+	"github.com/emersion/go-imap/client"
 	imapmail "github.com/emersion/go-message/mail"
 )
 
@@ -37,8 +37,8 @@ func NewEmailService(cfg *config.Config) *EmailService {
 }
 
 // SendEmail sends an email with optional attachment
-func (s *EmailService) SendEmail(to, subject, body string, attachmentPath string) (string, error) {
-	from := s.Config.SenderEmail
+func (s *EmailService) SendEmail(user models.User, to, subject, body string, attachmentPath string) (string, error) {
+	from := user.EmailAddress
 
 	// Generate Message-ID
 	randomBytes := make([]byte, 8)
@@ -54,12 +54,12 @@ func (s *EmailService) SendEmail(to, subject, body string, attachmentPath string
 
 	// Email headers
 	fmt.Fprintf(&msg, "From: %s\r\n", from)
-    fmt.Fprintf(&msg, "To: %s\r\n", to)
-    fmt.Fprintf(&msg, "Subject: %s\r\n", subject)
-    fmt.Fprintf(&msg, "Message-ID: %s\r\n", messageID)
-    fmt.Fprintf(&msg, "MIME-Version: 1.0\r\n")
-    fmt.Fprintf(&msg, "Content-Type: multipart/mixed; boundary=%s\r\n", writer.Boundary())
-    fmt.Fprintf(&msg, "\r\n") // header结束
+	fmt.Fprintf(&msg, "To: %s\r\n", to)
+	fmt.Fprintf(&msg, "Subject: %s\r\n", subject)
+	fmt.Fprintf(&msg, "Message-ID: %s\r\n", messageID)
+	fmt.Fprintf(&msg, "MIME-Version: 1.0\r\n")
+	fmt.Fprintf(&msg, "Content-Type: multipart/mixed; boundary=%s\r\n", writer.Boundary())
+	fmt.Fprintf(&msg, "\r\n")
 
 	// Write body part
 	part, err := writer.CreatePart(textproto.MIMEHeader{
@@ -81,21 +81,21 @@ func (s *EmailService) SendEmail(to, subject, body string, attachmentPath string
 	writer.Close()
 
 	// Send email
-	addr := s.Config.SMTPHost + ":" + s.Config.SMTPPort
+	addr := user.SMTPHost + ":" + user.SMTPPort
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true, // 可设 false，如果你有证书
-		ServerName:         s.Config.SMTPHost,
+		ServerName:         user.SMTPHost,
 	}
 	conn, err := tls.Dial("tcp", addr, tlsConfig)
 	if err != nil {
 		return "", fmt.Errorf("TLS dial error: %w", err)
 	}
-	c, err := smtp.NewClient(conn, s.Config.SMTPHost)
+	c, err := smtp.NewClient(conn, user.SMTPHost)
 	if err != nil {
 		return "", err
 	}
 	defer c.Quit()
-	auth := smtp.PlainAuth("", s.Config.SenderEmail, s.Config.SenderPass, s.Config.SMTPHost)
+	auth := smtp.PlainAuth("", user.SMTPUsername, user.SMTPPassword, user.SMTPHost)
 	if err = c.Auth(auth); err != nil {
 		return "", fmt.Errorf("auth error: %w", err)
 	}
@@ -172,32 +172,32 @@ func (s *EmailService) getContentType(filename string) string {
 }
 
 // FetchEmails fetches emails from IMAP server
-func (s *EmailService) FetchEmails() ([]models.EmailMessage, error) {
-	log.Printf("Connecting to IMAP server %s:%s", s.Config.IMAPHost, s.Config.IMAPPort)
-	c, err := client.DialTLS(s.Config.IMAPHost+":"+s.Config.IMAPPort, nil)
+func (s *EmailService) FetchEmails(user models.User) ([]models.EmailMessage, error) {
+	log.Printf("Connecting to IMAP server %s:%s", user.IMAPHost, user.IMAPPort)
+	c, err := client.DialTLS(user.IMAPHost+":"+user.IMAPPort, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to IMAP server: %w", err)
 	}
 	defer c.Logout()
 
-	if err := c.Login(s.Config.SenderEmail, s.Config.SenderPass); err != nil {
+	if err := c.Login(user.IMAPUsername, user.IMAPPassword); err != nil {
 		return nil, fmt.Errorf("failed to login: %w", err)
 	}
 	log.Println("Logged in to IMAP server")
 
 	idClient := imapid.NewClient(c)
-    idParams := map[string]string{
-        "name":          "my-go-client",
-        "version":       "1.0.0",
-        "vendor":        "go-imap",
-        "support-email": "support@example.com",
-    }
+	idParams := map[string]string{
+		"name":          "my-go-client",
+		"version":       "1.0.0",
+		"vendor":        "go-imap",
+		"support-email": "support@example.com",
+	}
 	log.Println("Sending IMAP ID...")
-    _, err = idClient.ID(idParams)
-    if err != nil {
-        log.Fatal("ID command failed: ", err)
-    }
-    log.Println("IMAP ID sent successfully!")
+	_, err = idClient.ID(idParams)
+	if err != nil {
+		log.Fatal("ID command failed: ", err)
+	}
+	log.Println("IMAP ID sent successfully!")
 
 	mbox, err := c.Select("INBOX", false)
 	if err != nil {
@@ -315,11 +315,46 @@ func (s *EmailService) parseEmail(r io.Reader, envelope *imap.Envelope) (models.
 	return emailMsg, nil
 }
 
-// ProcessIncomingEmails fetches and processes all new emails
+// ProcessIncomingEmails fetches and processes all new emails for all users
 func (s *EmailService) ProcessIncomingEmails() error {
-	log.Println("Processing incoming emails...")
+	log.Println("Processing incoming emails for all users...")
 
-	emails, err := s.FetchEmails()
+	rows, err := db.DB.Query("SELECT id, smtp_host, smtp_port, smtp_username, smtp_password, imap_host, imap_port, imap_username, imap_password, email_address FROM users WHERE smtp_host != '' AND email_address != ''")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var user models.User
+		var smtpHost, smtpPort, smtpUser, smtpPass, imapHost, imapPort, imapUser, imapPass, emailAddr sql.NullString
+
+		if err := rows.Scan(&user.ID, &smtpHost, &smtpPort, &smtpUser, &smtpPass, &imapHost, &imapPort, &imapUser, &imapPass, &emailAddr); err != nil {
+			log.Printf("Failed to scan user: %v", err)
+			continue
+		}
+
+		user.SMTPHost = smtpHost.String
+		user.SMTPPort = smtpPort.String
+		user.SMTPUsername = smtpUser.String
+		user.SMTPPassword = smtpPass.String
+		user.IMAPHost = imapHost.String
+		user.IMAPPort = imapPort.String
+		user.IMAPUsername = imapUser.String
+		user.IMAPPassword = imapPass.String
+		user.EmailAddress = emailAddr.String
+
+		if err := s.processUserEmails(user); err != nil {
+			log.Printf("Failed to process emails for user %d: %v", user.ID, err)
+		}
+	}
+	return nil
+}
+
+func (s *EmailService) processUserEmails(user models.User) error {
+	log.Printf("Processing incoming emails for user %d (%s)...", user.ID, user.EmailAddress)
+
+	emails, err := s.FetchEmails(user)
 	if err != nil {
 		return fmt.Errorf("failed to fetch emails: %w", err)
 	}
@@ -346,7 +381,13 @@ func (s *EmailService) ProcessIncomingEmails() error {
 		if email.InReplyTo != "" {
 			var tid int
 			log.Printf("Looking up project from In-Reply-To: %s", email.InReplyTo)
-			err := db.DB.QueryRow("SELECT project_id, teacher_id FROM sent_emails WHERE message_id = ?", email.InReplyTo).Scan(&projectID, &tid)
+			// Ensure project belongs to user
+			err := db.DB.QueryRow(`
+				SELECT se.project_id, se.teacher_id 
+				FROM sent_emails se
+				JOIN projects p ON se.project_id = p.id
+				WHERE se.message_id = ? AND p.created_by = ?`,
+				email.InReplyTo, user.ID).Scan(&projectID, &tid)
 			if err == nil {
 				teacherID.Int64 = int64(tid)
 				teacherID.Valid = true
@@ -364,8 +405,8 @@ func (s *EmailService) ProcessIncomingEmails() error {
 				rows, err := db.DB.Query(`
 					SELECT p.id FROM projects p
 					JOIN project_members pm ON p.id = pm.project_id
-					WHERE pm.teacher_id = ? AND p.status = 'active'
-				`, tid)
+					WHERE pm.teacher_id = ? AND p.status = 'active' AND p.created_by = ?
+				`, tid, user.ID)
 				if err == nil {
 					var pids []int
 					for rows.Next() {
