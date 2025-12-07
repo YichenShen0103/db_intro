@@ -11,13 +11,6 @@ type Config struct {
 	DBName     string
 	Port       string
 
-	SMTPHost    string
-	SMTPPort    string
-	SenderEmail string
-	SenderPass  string
-	IMAPHost    string
-	IMAPPort    string
-
 	EmailFetchInterval int
 }
 

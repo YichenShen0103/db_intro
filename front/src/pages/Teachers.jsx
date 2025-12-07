@@ -22,7 +22,7 @@ function Teachers() {
             const res = await teachersAPI.getAll()
             setTeachers(res.data?.data || [])
         } catch (err) {
-            console.error('Failed to load teachers:', err)
+            console.error('加载教师失败：', err)
         }
     }
 
@@ -31,7 +31,7 @@ function Teachers() {
             const res = await departmentsAPI.getAll()
             setDepartments(res.data?.data || [])
         } catch (err) {
-            console.error('Failed to load departments:', err)
+            console.error('加载系别失败：', err)
         }
     }
 

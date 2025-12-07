@@ -25,7 +25,7 @@ function ProjectDetail() {
             const trackingRes = await projectsAPI.getTracking(id)
             setActiveProjectRecords(trackingRes.data?.data?.details || [])
         } catch (err) {
-            console.error('Failed to load project:', err)
+            console.error('加载项目失败：', err)
         }
     }
 
@@ -34,7 +34,7 @@ function ProjectDetail() {
             const res = await teachersAPI.getAll()
             setTeachers(res.data?.data || [])
         } catch (err) {
-            console.error('Failed to load teachers:', err)
+            console.error('加载教师失败：', err)
         }
     }
 
@@ -114,7 +114,7 @@ function ProjectDetail() {
         }
     }
 
-    if (!activeProject) return <div>Loading...</div>
+    if (!activeProject) return <div>加载中...</div>
 
     return (
         <div className="bg-white rounded-lg shadow p-6">

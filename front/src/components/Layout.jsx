@@ -47,7 +47,7 @@ function Layout() {
                     >
                         <i className="fas fa-sign-out-alt mr-2"></i> 退出登录
                     </button>
-                    Version 1.0
+                    version 1.0
                 </div>
             </aside>
 

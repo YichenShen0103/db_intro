@@ -23,11 +23,11 @@ function Projects() {
         try {
             const res = await userAPI.getEmailConfig()
             if (!res.data.has_config) {
-                alert("Please configure your email settings first.")
+                alert("请先配置您的邮箱设置。")
                 navigate('/settings')
             }
         } catch (err) {
-            console.error("Failed to check email config", err)
+            console.error("检查邮箱配置失败", err)
         }
     }
 
@@ -36,7 +36,7 @@ function Projects() {
             const res = await projectsAPI.getAll()
             setProjects(res.data?.data || [])
         } catch (err) {
-            console.error('Failed to load projects:', err)
+            console.error('加载项目失败：', err)
         }
     }
 
