@@ -70,11 +70,22 @@ func (h *ProjectHandler) GetProject(c *gin.Context) {
 	id := c.Param("id")
 	var p models.Project
 	err := db.DB.QueryRow(`
-		SELECT id, code, name, status, email_subject_template, 
-		email_body_template, excel_template_filename, created_at
-		FROM projects WHERE id=? AND created_by=?
+		SELECT 
+			p.id, p.code, p.name, p.status, p.email_subject_template,
+			p.email_body_template, p.excel_template_filename, p.created_at,
+			COALESCE(stats.total_sent, 0) AS total_sent,
+			COALESCE(stats.replied_count, 0) AS replied_count
+		FROM projects p
+		LEFT JOIN (
+			SELECT project_id,
+				COUNT(*) AS total_sent,
+				COUNT(CASE WHEN current_status = 'replied' THEN 1 END) AS replied_count
+			FROM project_members
+			GROUP BY project_id
+		) stats ON stats.project_id = p.id
+		WHERE p.id=? AND p.created_by=?
 	`, id, userID).Scan(&p.ID, &p.Code, &p.Name, &p.Status, &p.EmailSubjectTemplate,
-		&p.EmailBodyTemplate, &p.ExcelTemplateFilename, &p.CreatedAt)
+		&p.EmailBodyTemplate, &p.ExcelTemplateFilename, &p.CreatedAt, &p.TotalSent, &p.RepliedCount)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
@@ -476,13 +487,23 @@ func (h *ProjectHandler) FetchProjectEmails(c *gin.Context) {
 		return
 	}
 
-	// Process emails for this project
-	if err := h.EmailService.ProcessIncomingEmails(); err != nil {
-		log.Printf("Failed to process emails for project %d: %v", pid, err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"error":   "Failed to fetch emails",
-			"message": err.Error(),
+	// Process emails only for the current user
+	if err := h.EmailService.ProcessUserEmails(userID); err != nil {
+		log.Printf("Failed to process emails for user %d project %d: %v", userID, pid, err)
+		status := http.StatusInternalServerError
+		message := "Failed to fetch emails"
+		switch {
+		case errors.Is(err, services.ErrUserNotFound):
+			status = http.StatusNotFound
+			message = "User not found"
+		case errors.Is(err, services.ErrEmailConfigIncomplete):
+			status = http.StatusBadRequest
+			message = "Email configuration incomplete"
+		}
+		c.JSON(status, gin.H{
+			"code":    status,
+			"error":   message,
+			"details": err.Error(),
 		})
 		return
 	}

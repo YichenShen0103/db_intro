@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -31,6 +32,11 @@ import (
 type EmailService struct {
 	Config *config.Config
 }
+
+var (
+	ErrUserNotFound          = errors.New("user not found")
+	ErrEmailConfigIncomplete = errors.New("user email configuration incomplete")
+)
 
 func NewEmailService(cfg *config.Config) *EmailService {
 	return &EmailService{Config: cfg}
@@ -349,6 +355,39 @@ func (s *EmailService) ProcessIncomingEmails() error {
 		}
 	}
 	return nil
+}
+
+// ProcessUserEmails fetches and processes emails for a single user
+func (s *EmailService) ProcessUserEmails(userID int) error {
+	var user models.User
+	var smtpHost, smtpPort, smtpUser, smtpPass, imapHost, imapPort, imapUser, imapPass, emailAddr sql.NullString
+
+	err := db.DB.QueryRow(
+		"SELECT id, smtp_host, smtp_port, smtp_username, smtp_password, imap_host, imap_port, imap_username, imap_password, email_address FROM users WHERE id = ?",
+		userID,
+	).Scan(&user.ID, &smtpHost, &smtpPort, &smtpUser, &smtpPass, &imapHost, &imapPort, &imapUser, &imapPass, &emailAddr)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrUserNotFound
+		}
+		return err
+	}
+
+	user.SMTPHost = smtpHost.String
+	user.SMTPPort = smtpPort.String
+	user.SMTPUsername = smtpUser.String
+	user.SMTPPassword = smtpPass.String
+	user.IMAPHost = imapHost.String
+	user.IMAPPort = imapPort.String
+	user.IMAPUsername = imapUser.String
+	user.IMAPPassword = imapPass.String
+	user.EmailAddress = emailAddr.String
+
+	if user.IMAPHost == "" || user.IMAPPort == "" || user.IMAPUsername == "" || user.IMAPPassword == "" || user.EmailAddress == "" {
+		return ErrEmailConfigIncomplete
+	}
+
+	return s.processUserEmails(user)
 }
 
 func (s *EmailService) processUserEmails(user models.User) error {
