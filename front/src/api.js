@@ -51,6 +51,7 @@ export const departmentsAPI = {
 export const userAPI = {
   getEmailConfig: () => api.get("/user/email-config"),
   updateEmailConfig: (data) => api.put("/user/email-config", data),
+  getProfile: () => api.get("/user/profile"),
 };
 
 export default api;

@@ -85,7 +85,7 @@ cd db_intro
 
 3. 启动所有服务：
 ```bash
-docker-compose up -d --build
+docker-compose up -d
 ```
 
 4. 访问应用：

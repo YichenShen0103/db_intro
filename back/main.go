@@ -67,6 +67,7 @@ func main() {
 			// User Email Config
 			protected.GET("/user/email-config", handlers.GetEmailConfig)
 			protected.PUT("/user/email-config", handlers.UpdateEmailConfig)
+			protected.GET("/user/profile", handlers.GetCurrentUser)
 
 			// Projects
 			protected.GET("/projects", projectHandler.GetProjects)

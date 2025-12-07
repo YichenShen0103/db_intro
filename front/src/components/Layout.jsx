@@ -1,9 +1,30 @@
+import { useEffect, useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { userAPI } from '../api'
 
 function Layout() {
     const navigate = useNavigate()
     const location = useLocation()
     const currentPath = location.pathname
+    const [username, setUsername] = useState('')
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const res = await userAPI.getProfile()
+                setUsername(res.data?.username || '')
+            } catch (err) {
+                console.error('获取用户信息失败：', err)
+            }
+        }
+
+        fetchProfile()
+    }, [])
+
+    const handleLogout = () => {
+        localStorage.removeItem('token')
+        navigate('/login')
+    }
 
     return (
         <div className="flex h-screen bg-gray-50">
@@ -37,17 +58,20 @@ function Layout() {
                         <i className="fas fa-cog mr-2"></i> 邮箱设置
                     </button>
                 </nav>
-                <div className="p-4 border-t text-xs text-gray-400">
-                    <button
-                        onClick={() => {
-                            localStorage.removeItem('token')
-                            navigate('/login')
-                        }}
-                        className="w-full text-left block px-4 py-2 rounded hover:bg-red-50 text-red-600 transition mb-2"
-                    >
-                        <i className="fas fa-sign-out-alt mr-2"></i> 退出登录
-                    </button>
-                    version 1.0
+                <div className="p-4 border-t text-xs text-gray-400 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center text-sm text-gray-600 truncate">
+                            <i className="fas fa-user-circle mr-2 text-blue-500"></i>
+                            {username || '加载中...'}
+                        </div>
+                        <button
+                            onClick={handleLogout}
+                            className="px-3 py-2 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50 transition whitespace-nowrap"
+                        >
+                            <i className="fas fa-sign-out-alt mr-1"></i> 退出登录
+                        </button>
+                    </div>
+                    <div>version 1.0</div>
                 </div>
             </aside>
 

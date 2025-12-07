@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"db_intro_backend/db"
 	"net/http"
 
@@ -98,4 +99,24 @@ func GetEmailConfig(c *gin.Context) {
 		"email_address": emailAddress,
 		"has_config":    hasConfig,
 	})
+}
+
+func GetCurrentUser(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var username string
+	if err := db.DB.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"username": username})
 }
