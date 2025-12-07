@@ -44,41 +44,6 @@
 ### 部署
 - Docker & Docker Compose
 
-## 项目结构
-
-```
-.
-├── back
-│   ├── Dockerfile        # 用于构建后端容器
-│   ├── email.go          # 处理邮件收发逻辑
-│   ├── go.mod
-│   ├── go.sum
-│   ├── main.go           # 定义路由，实现 API
-│   └── scheduler.go      # 邮件收取的异步模块
-├── database
-│   ├── db_schema.sql     # 建表
-│   ├── Dockerfile        # 用于构建数据库容器   
-│   ├── init_data.sql     # 加入一些初始数据
-│   └── my.cnf            # 数据库配置文件
-├── front
-│   ├── Dockerfile        # 用于构建前端容器
-│   ├── index.html        
-│   ├── nginx.conf        # nginx 配置
-│   ├── node_modules
-│   ├── package.json
-│   ├── postcss.config.js
-│   ├── src
-│   │   ├── api.js
-│   │   ├── App.jsx
-│   │   ├── index.css
-│   │   └── main.jsx
-│   ├── tailwind.config.js
-│   └── vite.config.js
-├── README.md
-├── docker-compose.yml    # docker compose 文件，用于统筹容器
-└── uploads               # 用于存储上传文件的目录
-```
-
 ## 架构说明
 
 本项目采用前后端分离架构，容器化部署：
@@ -182,15 +147,6 @@ DB_USER=root
 DB_PASSWORD=root
 DB_HOST=database  # Docker 内部服务名，本地开发请用 localhost
 
-# 邮件服务配置 (SMTP/IMAP)
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SENDER_EMAIL=your_email@example.com
-SENDER_PASS=your_password
-IMAP_HOST=imap.example.com
-IMAP_PORT=993
-ENABLE_EMAIL_SCHEDULER=true
-
 # 系统配置
 TZ=Asia/Shanghai  # 时区设置
 ```
@@ -214,20 +170,4 @@ TZ=Asia/Shanghai  # 时区设置
 
 ## 待完善功能
 
-- [x] 基础信息管理（教师、系别）
-- [x] 项目创建与管理
-- [x] SMTP邮件发送功能
-- [x] IMAP邮件接收和解析功能
-- [ ] Excel文件内容解析和合并功能
-- [ ] 用户认证和权限管理
-- [ ] 数据导出为多种格式（PDF、CSV等）
-- [ ] 邮件发送队列和重试机制
-- [ ] 数据统计和可视化报表
-
-## 许可证
-
-MIT
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！
+Nothing to be done...
