@@ -44,8 +44,7 @@ func (s *ExcelService) AggregateProjectExcel(projectID int) (string, int, int, e
 
 	sheetName := "Aggregated"
 	book.SetSheetName(book.GetSheetName(0), sheetName)
-	metaHeaders := []string{"Teacher", "Email", "Source File"}
-	headerRow := append([]string{}, metaHeaders...)
+	headerRow := []string{}
 	headerWritten := false
 	dataColumns := 0
 	rowCursor := 2
@@ -87,8 +86,7 @@ func (s *ExcelService) AggregateProjectExcel(projectID int) (string, int, int, e
 		}
 
 		if !headerWritten {
-			headerRow = append(headerRow[:0], metaHeaders...)
-			headerRow = append(headerRow, headerCells...)
+			headerRow = append(headerRow[:0], headerCells...)
 			dataColumns = len(headerCells)
 			headCopy := make([]string, len(headerRow))
 			copy(headCopy, headerRow)
@@ -107,13 +105,6 @@ func (s *ExcelService) AggregateProjectExcel(projectID int) (string, int, int, e
 			processedAttachments++
 			continue
 		}
-
-		teacherName := att.TeacherName
-		if teacherName == "" {
-			teacherName = "未匹配教师"
-		}
-
-		teacherEmail := att.TeacherEmail
 
 		for _, dataRow := range dataRows {
 			if s.rowIsEmpty(dataRow) {
@@ -136,10 +127,8 @@ func (s *ExcelService) AggregateProjectExcel(projectID int) (string, int, int, e
 				dataRow = append(dataRow, padding...)
 			}
 
-			metaValues := []string{teacherName, teacherEmail, att.OriginalName}
-			rowValues := append(metaValues, dataRow...)
-			rowCopy := make([]string, len(rowValues))
-			copy(rowCopy, rowValues)
+			rowCopy := make([]string, len(dataRow))
+			copy(rowCopy, dataRow)
 			book.SetSheetRow(sheetName, fmt.Sprintf("A%d", rowCursor), &rowCopy)
 			rowCursor++
 			appendedRows++

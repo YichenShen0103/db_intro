@@ -240,7 +240,7 @@ func (s *EmailService) FetchEmails(user models.User) ([]models.EmailMessage, err
 			continue
 		}
 
-		emailMsg, err := s.parseEmail(r, msg.Envelope)
+		emailMsg, err := s.parseEmail(r)
 		if err != nil {
 			log.Printf("Failed to parse email: %v", err)
 			continue
@@ -257,7 +257,7 @@ func (s *EmailService) FetchEmails(user models.User) ([]models.EmailMessage, err
 	return emails, nil
 }
 
-func (s *EmailService) parseEmail(r io.Reader, envelope *imap.Envelope) (models.EmailMessage, error) {
+func (s *EmailService) parseEmail(r io.Reader) (models.EmailMessage, error) {
 	mr, err := imapmail.CreateReader(r)
 	if err != nil {
 		return models.EmailMessage{}, fmt.Errorf("failed to create mail reader: %w", err)
